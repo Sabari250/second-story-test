@@ -3,6 +3,8 @@ import User from "../models/userModel.js";
 import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
 import validator from "validator";
+import { promisify } from "util";
+import sendMail from "../utils/email.js";
 
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -26,7 +28,6 @@ const createToken = (user, statusCode, res) => {
 
   res.status(statusCode).json({
     status: "success",
-    token,
     data: {
       user,
     },
@@ -39,7 +40,6 @@ const signup = catchAsync(async (req, res, next) => {
     email,
     password,
     passwordConfirm,
-    address,
     firstName,
     lastName,
     phone,
@@ -47,12 +47,12 @@ const signup = catchAsync(async (req, res, next) => {
 
   const existingUser = await User.findOne({ userName });
   if (existingUser) {
-      return next(new AppError("User already exists with this username", 400));
+    return next(new AppError("User already exists with this username", 400));
   }
 
   const existingEmail = await User.findOne({ email });
   if (existingEmail) {
-      return next(new AppError("User already exists with this email", 400));
+    return next(new AppError("User already exists with this email", 400));
   }
 
   const phoneNumber = phone.phoneNumber;
@@ -70,7 +70,6 @@ const signup = catchAsync(async (req, res, next) => {
     email,
     password,
     passwordConfirm,
-    address,
     firstName,
     lastName,
     phone,
@@ -82,20 +81,25 @@ const login = catchAsync(async (req, res, next) => {
   const { identifier, password } = req.body;
 
   if (!identifier || !password) {
-    return next(new AppError("Please provide email/mobile number and password!", 400));
+    return next(
+      new AppError("Please provide email or username and password!", 400)
+    );
   }
 
   let user;
 
   if (validator.isEmail(identifier)) {
-    // If the identifier is an email
     user = await User.findOne({ email: identifier }).select("+password");
-  } else if (validator.isMobilePhone(identifier, "any", { strictMode: false })) {
-    // If the identifier is a mobile number
-    user = await User.findOne({ "phone.phoneNumber": identifier }).select("+password");
+  } else if (
+    validator.isMobilePhone(identifier, "any", { strictMode: false })
+  ) {
+    user = await User.findOne({ "phone.phoneNumber": identifier }).select(
+      "+password"
+    );
   } else {
-    // If the identifier is neither an email nor a mobile number
-    return next(new AppError("Please provide a valid email/mobile number!", 400));
+    return next(
+      new AppError("Please provide a valid email/mobile number!", 400)
+    );
   }
 
   if (!user || !(await user.correctPassword(password, user.password))) {
@@ -105,7 +109,230 @@ const login = catchAsync(async (req, res, next) => {
   createToken(user, 200, res);
 });
 
+const protect = catchAsync(async (req, res, next) => {
+  let token;
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    token = req.headers.authorization.split(" ")[1];
+  } else if (req.cookies.jwt) {
+    token = req.cookies.jwt;
+  }
 
-export { signup, login };
+  if (!token) {
+    return next(
+      new AppError("You are not logged in! Please log in to get access.", 401)
+    );
+  }
 
+  const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
+  const currentUser = await User.findById(decoded.id);
+  if (!currentUser) {
+    return next(
+      new AppError(
+        "The user belonging to this token does no longer exist.",
+        401
+      )
+    );
+  }
+
+  if (currentUser.changedPasswordAfter(decoded.iat)) {
+    return next(
+      new AppError("User recently changed password! Please log in again.", 401)
+    );
+  }
+
+  req.user = currentUser;
+  res.locals.user = currentUser;
+  next();
+});
+
+const logout = (req, res) => {
+  res.cookie("jwt", "loggedout", {
+    expires: new Date(Date.now() + 10 * 1000),
+    httpOnly: true,
+  });
+  res.status(200).json({ status: "success" });
+};
+
+const getCurrentUser = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.user.id);
+
+  if (user) {
+    res.status(200).json({
+      status: "success",
+      data: {
+        user,
+      },
+    });
+  } else {
+    return next(new AppError("User not found", 404));
+  }
+});
+
+const updateUserProfile = catchAsync(async (req, res, next) => {
+  const user = await User.findByIdAndUpdate(req.user.id, req.body, {
+    new: true,
+    runValidators: true,
+  });
+
+  if (user) {
+    res.status(200).json({
+      status: "success",
+      data: {
+        user,
+      },
+    });
+  } else {
+    return next(new AppError("User not found", 404));
+  }
+});
+
+const updatePassword = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.user.id).select("+password");
+
+  if (!(await user.correctPassword(req.body.passwordCurrent, user.password))) {
+    return next(new AppError("Your current password is wrong.", 401));
+  }
+
+  user.password = req.body.password;
+  user.passwordConfirm = req.body.passwordConfirm;
+  await user.save();
+
+  createToken(user, 200, res);
+});
+
+const addToCart = catchAsync(async (req, res, next) => {
+  const { bookId } = req.body;
+  const currentUser = req.user;
+
+  const cartItem = { bookId };
+
+  await User.findByIdAndUpdate(
+    currentUser._id,
+    { $push: { cart: cartItem } },
+    { new: true, runValidators: true }
+  );
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      message: "Item added to cart successfully",
+    },
+  });
+});
+
+const getCart = async (req, res) => {
+  const currentUser = req.user;
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      cart: currentUser.cart,
+    },
+  });
+};
+
+const removeFromCart = catchAsync(async (req, res, next) => {
+  const { bookId } = req.params;
+  const currentUser = req.user;
+
+  await User.findByIdAndUpdate(
+    currentUser._id,
+    { $pull: { cart: { bookId: bookId } } },
+    { new: true, runValidators: true }
+  );
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      message: "Item removed from cart successfully",
+    },
+  });
+});
+
+const passwordReset = catchAsync(async (user, resetToken) => {
+  const resetURL = `http://127.0.0.1:4000/api/v1/user/resetPassword/${resetToken}`;
+
+  const message = `Forgot your password? Submit a PATCH request with your new password and passwordConfirm to: ${resetURL}.\nIf you didn't forget your password, please ignore this email!`;
+
+  try {
+    const isEmailSent = await sendMail({
+      email: user.email,
+      subject: "Your password reset token (valid for 10 min)",
+      message,
+    });
+
+    if (!isEmailSent) {
+      console.error("Failed to send email.");
+      user.passwordResetToken = undefined;
+      user.passwordResetExpires = undefined;
+      await user.save({ validateBeforeSave: false });
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Error in passwordReset:", err);
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+    return false;
+  }
+});
+
+const forgotPassword = catchAsync(async (req, res, next) => {
+  const user = await User.findOne({ email: req.body.email });
+
+  if (!user) {
+    return next(new AppError("There is no user with email address.", 404));
+  }
+
+  const resetToken = user.createResetPasswordToken();
+  await user.save({ validateBeforeSave: false });
+
+  // const isEmailSent = await passwordReset(user, resetToken);
+
+  // if (!isEmailSent) {
+  //   return next(
+  //     new AppError("There was an error sending the email. Try again later!", 500)
+  //   );
+  // }
+
+  const isEmailSent = await sendMail({
+    email: user.email,
+    subject: "Your password reset token (valid for 10 min)",
+    message: "This is message",
+  });
+
+  if (!isEmailSent) {
+    return next(
+      new AppError(
+        "There was an error sending the email. Try again later!",
+        500
+      )
+    );
+  }
+
+  res.status(200).json({
+    status: "success",
+    message: "Token sent to email!",
+  });
+});
+
+export {
+  signup,
+  login,
+  protect,
+  logout,
+  getCurrentUser,
+  updateUserProfile,
+  updatePassword,
+  addToCart,
+  getCart,
+  removeFromCart,
+  forgotPassword,
+  passwordReset,
+};

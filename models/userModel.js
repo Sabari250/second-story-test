@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import validator from "validator";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 
 const userSchema = new mongoose.Schema({
   userName: {
@@ -42,22 +43,22 @@ const userSchema = new mongoose.Schema({
   address: {
     add_line1: {
       type: String,
-      required: [true, "Please fill out address"],
+      // required: [true, "Please fill out address"],
     },
     add_line2: {
       type: String,
     },
     city: {
       type: String,
-      required: [true, "Please fill out address"],
+      // required: [true, "Please fill out address"],
     },
     state: {
       type: String,
-      required: [true, "Please fill out address"],
+      // required: [true, "Please fill out address"],
     },
     postal_code: {
       type: String,
-      required: [true, "Please fill out address"],
+      // required: [true, "Please fill out address"],
     },
   },
   phone: {
@@ -66,7 +67,7 @@ const userSchema = new mongoose.Schema({
     },
     phoneNumber: {
       type: String,
-      required: [true, "Please tell your phone number"],
+      // required: [true, "Please tell your phone number"],
     },
   },
   cart: {
@@ -93,11 +94,14 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  passwordChangedAt: Date,
+  passwordResetToken: String,
+  passwordResetExpires: Date,
 });
 
 userSchema.pre("save", async function (next) {
-  // check is password changed ??
-  if (!this.isModified("password")) return next();
+  // Check if password is being modified, if not, skip this middleware
+  if (!this.isModified("password") || this.isNew) return next();
 
   // Hash the password with cost of 12
   this.password = await bcrypt.hash(this.password, 12);
@@ -107,6 +111,7 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
+
 userSchema.methods.correctPassword = async function (
   candidatePassword,
   userPassword
@@ -114,6 +119,38 @@ userSchema.methods.correctPassword = async function (
   return await bcrypt.compare(candidatePassword, userPassword);
 };
 
+userSchema.methods.changedPasswordAfter = function(JWTTimestamp) {
+  if (this.passwordChangedAt) {
+    const changedTimestamp = parseInt(
+      this.passwordChangedAt.getTime() / 1000,
+      10
+    );
+
+    return JWTTimestamp < changedTimestamp;
+  }
+
+  // False means NOT changed
+  return false;
+};
+
+userSchema.methods.createResetPasswordToken = function() {
+  const resetToken = crypto.randomBytes(32).toString("hex");
+
+  this.passwordResetToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+
+  console.log({ resetToken }, this.passwordResetToken);
+
+  return resetToken;
+}
+
+
+
 const User = mongoose.model("User", userSchema);
 
 export default User;
+

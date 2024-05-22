@@ -1,10 +1,11 @@
 import express from "express";
-import dotenv from "dotenv";
+import dotenv from 'dotenv';
 dotenv.config();
 import cookieParser from "cookie-parser";
 
 import AppError from "./utils/appError.js"; 
 import userRouter from "./routes/userRouter.js";
+import bookRouter from "./routes/bookRouter.js";
 
 const app = express();
 
@@ -15,7 +16,7 @@ app.use(express.json());
 app.use("/api/v1/user", userRouter);
 
 // book route
-// app.use("/api/v1/book");
+app.use("/api/v1/book", bookRouter);
 
 app.all("*", (req, res, next) => {
     next(new AppError(`Can't find ${req.originalUrl} on this server`, 404));
