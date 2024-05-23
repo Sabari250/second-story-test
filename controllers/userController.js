@@ -4,7 +4,8 @@ import catchAsync from "../utils/catchAsync.js";
 import AppError from "../utils/appError.js";
 import validator from "validator";
 import { promisify } from "util";
-import sendMail from "../utils/email.js";
+import sendMailTo from "../utils/email.js";
+import crypto from "crypto";
 
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -44,17 +45,14 @@ const signup = catchAsync(async (req, res, next) => {
     lastName,
     phone,
   } = req.body;
-
   const existingUser = await User.findOne({ userName });
   if (existingUser) {
     return next(new AppError("User already exists with this username", 400));
   }
-
   const existingEmail = await User.findOne({ email });
   if (existingEmail) {
     return next(new AppError("User already exists with this email", 400));
   }
-
   const phoneNumber = phone.phoneNumber;
   const existingPhone = await User.findOne({
     "phone.phoneNumber": phoneNumber,
@@ -64,7 +62,6 @@ const signup = catchAsync(async (req, res, next) => {
       new AppError("User already exists with this phone number", 400)
     );
   }
-
   const user = await User.create({
     userName,
     email,
@@ -253,36 +250,6 @@ const removeFromCart = catchAsync(async (req, res, next) => {
   });
 });
 
-const passwordReset = catchAsync(async (user, resetToken) => {
-  const resetURL = `http://127.0.0.1:4000/api/v1/user/resetPassword/${resetToken}`;
-
-  const message = `Forgot your password? Submit a PATCH request with your new password and passwordConfirm to: ${resetURL}.\nIf you didn't forget your password, please ignore this email!`;
-
-  try {
-    const isEmailSent = await sendMail({
-      email: user.email,
-      subject: "Your password reset token (valid for 10 min)",
-      message,
-    });
-
-    if (!isEmailSent) {
-      console.error("Failed to send email.");
-      user.passwordResetToken = undefined;
-      user.passwordResetExpires = undefined;
-      await user.save({ validateBeforeSave: false });
-      return false;
-    }
-
-    return true;
-  } catch (err) {
-    console.error("Error in passwordReset:", err);
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
-    await user.save({ validateBeforeSave: false });
-    return false;
-  }
-});
-
 const forgotPassword = catchAsync(async (req, res, next) => {
   const user = await User.findOne({ email: req.body.email });
 
@@ -293,18 +260,14 @@ const forgotPassword = catchAsync(async (req, res, next) => {
   const resetToken = user.createResetPasswordToken();
   await user.save({ validateBeforeSave: false });
 
-  // const isEmailSent = await passwordReset(user, resetToken);
+  const resetURL = `http://127.0.0.1:4000/api/v1/user/resetPassword/${resetToken}`;
 
-  // if (!isEmailSent) {
-  //   return next(
-  //     new AppError("There was an error sending the email. Try again later!", 500)
-  //   );
-  // }
+  const message = `Forgot your password? Submit a PATCH request with your new password and passwordConfirm to: ${resetURL}.\nIf you didn't forget your password, please ignore this email!`;
 
-  const isEmailSent = await sendMail({
+  const isEmailSent = await sendMailTo({
     email: user.email,
     subject: "Your password reset token (valid for 10 min)",
-    message: "This is message",
+    message,
   });
 
   if (!isEmailSent) {
@@ -321,6 +284,36 @@ const forgotPassword = catchAsync(async (req, res, next) => {
     message: "Token sent to email!",
   });
 });
+
+const passwordReset = catchAsync(async (req, res, next) => {
+  // Hash the token from the URL to compare it with the one in the database
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(req.params.token)
+    .digest("hex");
+
+  // Find the user by the hashed token and check if the token has expired
+  const user = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetExpires: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    return next(new AppError("Token is invalid or has expired.", 400));
+  }
+
+  // Update the user's password
+  user.password = req.body.password;
+  user.passwordConfirm = req.body.passwordConfirm;
+  user.passwordResetToken = undefined;
+  user.passwordResetExpires = undefined;
+
+  // Save the updated user document
+  await user.save();
+
+  createToken(user, 200, res);
+});
+
 
 export {
   signup,

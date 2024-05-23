@@ -19,7 +19,7 @@ router.post("/signup", signup);
 router.post("/login", login);
 router.post("/logout", logout);
 router.post("/forgotPassword", forgotPassword);
-router.post("/passwordReset", passwordReset);
+router.patch("/resetPassword/:token", passwordReset);
 
 router
   .route("/profile")
