@@ -10,7 +10,7 @@ import {
   updateUserProfile,
   addToCart,
   getCart,
-  removeFromCart,
+  removeFromCart
 } from "../controllers/userController.js";
 
 const router = express.Router();

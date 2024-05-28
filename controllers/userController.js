@@ -29,6 +29,7 @@ const createToken = (user, statusCode, res) => {
 
   res.status(statusCode).json({
     status: "success",
+    token,
     data: {
       user,
     },
@@ -313,7 +314,6 @@ const passwordReset = catchAsync(async (req, res, next) => {
 
   createToken(user, 200, res);
 });
-
 
 export {
   signup,
