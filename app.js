@@ -11,7 +11,7 @@ import bookRouter from "./routes/bookRouter.js";
 const app = express();
 
 // Use the cors middleware with a configuration to allow any origin
-app.use(cors({ origin: '*' }));
+app.use(cors());
 
 app.use(cookieParser());
 app.use(express.json());
