@@ -10,8 +10,15 @@ import bookRouter from "./routes/bookRouter.js";
 
 const app = express();
 
-// Use the cors middleware with a configuration to allow any origin
-app.use(cors());
+
+const corsOptions = {
+    origin: 'http://localhost:5174', // Allow all origins
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', // Allowed methods
+    credentials: true, // Allow credentials (cookies, authorization headers, etc.)
+    optionsSuccessStatus: 204 // Some legacy browsers (IE11, various SmartTVs) choke on 204
+};
+
+app.use(cors(corsOptions));
 
 app.use(cookieParser());
 app.use(express.json());
