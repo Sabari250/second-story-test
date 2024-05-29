@@ -21,6 +21,9 @@ app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
 
+app.get("/", (req, res) => {
+  res.send("Hello World");
+});
 // user route
 app.use("/api/v1/user", userRouter);
 
