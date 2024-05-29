@@ -12,13 +12,12 @@ const app = express();
 
 
 const corsOptions = {
-    origin: 'http://localhost:5174', // Allow all origins
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', // Allowed methods
-    credentials: true, // Allow credentials (cookies, authorization headers, etc.)
-    optionsSuccessStatus: 204 // Some legacy browsers (IE11, various SmartTVs) choke on 204
+    origin: '*', 
+    credentials: true, 
 };
 
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 app.use(cookieParser());
 app.use(express.json());
