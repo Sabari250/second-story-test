@@ -148,4 +148,15 @@ const getBookById = catchAsync(async (req, res, next) => {
   }
 });
 
+const getBookByFilter = catchAsync(async (req, res, next) => {
+  const { filter } = req.params;
+  const books = await Book.find({ filter });
+  res.status(200).json({
+    status: "success",
+    data: {
+      books,
+    },
+  });
+});
+
 export { addBook, removeBook, updateBook, getAllBook, getBookById };
