@@ -1,19 +1,18 @@
 import express from "express";
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 dotenv.config();
 import cookieParser from "cookie-parser";
 import cors from "cors";
 
-import AppError from "./utils/appError.js"; 
+import AppError from "./utils/appError.js";
 import userRouter from "./routes/userRouter.js";
 import bookRouter from "./routes/bookRouter.js";
 
 const app = express();
 
-
 const corsOptions = {
-    origin: '*', 
-    credentials: true, 
+  origin: "*",
+  credentials: true,
 };
 
 app.use(cors());
@@ -29,7 +28,7 @@ app.use("/api/v1/user", userRouter);
 app.use("/api/v1/book", bookRouter);
 
 app.all("*", (req, res, next) => {
-    next(new AppError(`Can't find ${req.originalUrl} on this server`, 404));
+  next(new AppError(`Can't find ${req.originalUrl} on this server`, 404));
 });
 
 export default app;
