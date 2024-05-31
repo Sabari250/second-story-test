@@ -11,12 +11,11 @@ import bookRouter from "./routes/bookRouter.js";
 const app = express();
 
 const corsOptions = {
-  origin: "*",
+  origin: "http://localhost:5173",
   credentials: true,
 };
 
 app.use(cors(corsOptions));
-// app.options('*', cors(corsOptions));
 
 app.use(cookieParser());
 app.use(express.json());

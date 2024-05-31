@@ -36,6 +36,7 @@ const createToken = (user, statusCode, res) => {
   });
 };
 
+
 const signup = catchAsync(async (req, res, next) => {
   const {
     userName,
