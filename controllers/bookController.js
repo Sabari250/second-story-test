@@ -123,8 +123,15 @@ const updateBook = catchAsync(async (req, res, next) => {
 });
 
 const getAllBook = catchAsync(async (req, res, next) => {
-  const books = await Book.find();
-
+  const { page = 1, limit = 25 } = req.query;
+ 
+  const startIndex = (page - 1) * limit;
+ 
+  const books = await Book.find().skip(startIndex).limit(limit);
+  const totalDocuments = await Book.countDocuments(); 
+ 
+  const totalPages = Math.ceil(totalDocuments / limit);
+ 
   res.status(200).json({
     status: "success",
     data: {
@@ -148,9 +155,39 @@ const getBookById = catchAsync(async (req, res, next) => {
   }
 });
 
-const getBookByFilter = catchAsync(async (req, res, next) => {
-  const { filter } = req.params;
-  const books = await Book.find({ filter });
+const filterBooks = catchAsync(async (req, res, next) => {
+  const filter = req.body;
+
+  // Build the query object based on the filter
+  let query = {};
+
+  if (filter.title) {
+    if (filter.title.main_title) {
+      query["title.main_title"] = filter.title.main_title;
+    }
+    if (filter.title.sub_title) {
+      query["title.sub_title"] = filter.title.sub_title;
+    }
+  }
+
+  if (filter.author) {
+    query.author = filter.author;
+  }
+
+  if (filter.price) {
+    query.price = filter.price;
+  }
+
+  if (filter.genres) {
+    query.genres = filter.genres;
+  }
+
+  if (filter.category) {
+    query.category = filter.category;
+  }
+
+  const books = await Book.find(query);
+
   res.status(200).json({
     status: "success",
     data: {
@@ -159,4 +196,36 @@ const getBookByFilter = catchAsync(async (req, res, next) => {
   });
 });
 
-export { addBook, removeBook, updateBook, getAllBook, getBookById };
+const searchBook = catchAsync(async (req, res, next) => {
+  const query = req.params.q;
+  let searchQuery;
+  
+  // Check if the query consists of only one word
+  if (query.trim().split(/\s+/).length === 1) {
+    // If it's a single word, search across all relevant fields
+    searchQuery = {
+      $or: [
+        { 'title.main_title': { $regex: query, $options: 'i' } },
+        { 'title.sub_title': { $regex: query, $options: 'i' } },
+        { author: { $regex: query, $options: 'i' } },
+        { description: { $regex: query, $options: 'i' } },
+        { genres: { $regex: query, $options: 'i' } },
+        { category: { $regex: query, $options: 'i' } }
+      ]
+    };
+  } else {
+    // If it's not a single word, perform the text search as before
+    searchQuery = { $text: { $search: query } };
+  }
+
+  const books = await Book.find(searchQuery);
+
+  res.json({
+    status: "success",
+    data: {
+      books,
+    },
+  });
+});
+
+export { addBook, removeBook, updateBook, getAllBook, getBookById, filterBooks, searchBook };

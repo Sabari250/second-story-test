@@ -93,11 +93,16 @@ const bookSchema = new mongoose.Schema({
       "Poor",
     ],
   },
-  // user: {
-  //   type: mongoose.Schema.Types.ObjectId,
-  //   ref: 'User',
-  //   required: true
-  // }
+});
+
+// Create a text index on title and description
+bookSchema.index({
+  'title.main_title': 'text',
+  'title.sub_title': 'text',
+  author: 'text',
+  description: 'text',
+  genres: 'text',
+  category: 'text',
 });
  
 const Book = mongoose.model("Book", bookSchema);

@@ -21,7 +21,7 @@ const createToken = (user, statusCode, res) => {
     ),
     httpOnly: true,
   };
-  if (process.env.NODE_ENV === "production") cookieOptions.secure = true;
+  // if (process.env.NODE_ENV === "production") cookieOptions.secure = true;
 
   res.cookie("jwt", token, cookieOptions);
 
@@ -188,19 +188,19 @@ const updateUserProfile = catchAsync(async (req, res, next) => {
   }
 });
 
-const updatePassword = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.user.id).select("+password");
+// const updatePassword = catchAsync(async (req, res, next) => {
+//   const user = await User.findById(req.user.id).select("+password");
 
-  if (!(await user.correctPassword(req.body.passwordCurrent, user.password))) {
-    return next(new AppError("Your current password is wrong.", 401));
-  }
+//   if (!(await user.correctPassword(req.body.passwordCurrent, user.password))) {
+//     return next(new AppError("Your current password is wrong.", 401));
+//   }
 
-  user.password = req.body.password;
-  user.passwordConfirm = req.body.passwordConfirm;
-  await user.save();
+//   user.password = req.body.password;
+//   user.passwordConfirm = req.body.passwordConfirm;
+//   await user.save();
 
-  createToken(user, 200, res);
-});
+//   createToken(user, 200, res);
+// });
 
 const addToCart = catchAsync(async (req, res, next) => {
   const { bookId } = req.body;
@@ -322,7 +322,7 @@ export {
   logout,
   getCurrentUser,
   updateUserProfile,
-  updatePassword,
+  // updatePassword,
   addToCart,
   getCart,
   removeFromCart,
