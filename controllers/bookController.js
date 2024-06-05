@@ -21,9 +21,9 @@ const addBook = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.user.id);
 
   if (category === "sell") {
-    user.shelf.keep.push(newBook._id);
-  } else if (category === "buy") {
-    user.shelf.buy.push(newBook._id);
+    user.shelf.sell.push(newBook._id);
+  } else if (category === "lend") {
+    user.shelf.lend.push(newBook._id);
   } else {
     user.shelf.keep.push(newBook._id);
   }
@@ -124,14 +124,14 @@ const updateBook = catchAsync(async (req, res, next) => {
 
 const getAllBook = catchAsync(async (req, res, next) => {
   const { page = 1, limit = 25 } = req.query;
- 
+
   const startIndex = (page - 1) * limit;
- 
+
   const books = await Book.find().skip(startIndex).limit(limit);
-  const totalDocuments = await Book.countDocuments(); 
- 
+  const totalDocuments = await Book.countDocuments();
+
   const totalPages = Math.ceil(totalDocuments / limit);
- 
+
   res.status(200).json({
     status: "success",
     data: {
@@ -199,19 +199,19 @@ const filterBooks = catchAsync(async (req, res, next) => {
 const searchBook = catchAsync(async (req, res, next) => {
   const query = req.params.q;
   let searchQuery;
-  
+
   // Check if the query consists of only one word
   if (query.trim().split(/\s+/).length === 1) {
     // If it's a single word, search across all relevant fields
     searchQuery = {
       $or: [
-        { 'title.main_title': { $regex: query, $options: 'i' } },
-        { 'title.sub_title': { $regex: query, $options: 'i' } },
-        { author: { $regex: query, $options: 'i' } },
-        { description: { $regex: query, $options: 'i' } },
-        { genres: { $regex: query, $options: 'i' } },
-        { category: { $regex: query, $options: 'i' } }
-      ]
+        { "title.main_title": { $regex: query, $options: "i" } },
+        { "title.sub_title": { $regex: query, $options: "i" } },
+        { author: { $regex: query, $options: "i" } },
+        { description: { $regex: query, $options: "i" } },
+        { genres: { $regex: query, $options: "i" } },
+        { category: { $regex: query, $options: "i" } },
+      ],
     };
   } else {
     // If it's not a single word, perform the text search as before
@@ -228,4 +228,44 @@ const searchBook = catchAsync(async (req, res, next) => {
   });
 });
 
-export { addBook, removeBook, updateBook, getAllBook, getBookById, filterBooks, searchBook };
+const getBookFromnIventory = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.user.id)
+    .populate("shelf.keep shelf.sell shelf.lend")
+    .exec();
+
+  if (!user) {
+    return next(new AppError("User not found", 404));
+  }
+
+  let books;
+
+  if (user.isAdmin) {
+    // Fetch all books if the user is an admin
+    books = await Book.find();
+  } else {
+    // Fetch books from the user's shelf
+    books = {
+      keep: user.shelf.keep,
+      sell: user.shelf.sell,
+      lend: user.shelf.lend,
+    };
+  }
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      books,
+    },
+  });
+});
+
+export {
+  addBook,
+  removeBook,
+  updateBook,
+  getAllBook,
+  getBookById,
+  filterBooks,
+  searchBook,
+  getBookFromnIventory,
+};

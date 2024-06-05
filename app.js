@@ -7,6 +7,7 @@ import cors from "cors";
 import AppError from "./utils/appError.js";
 import userRouter from "./routes/userRouter.js";
 import bookRouter from "./routes/bookRouter.js";
+import adminRouter from "./routes/adminRouter.js";
 
 const app = express();
 
@@ -28,6 +29,9 @@ app.use("/api/v1/user", userRouter);
 
 // book route
 app.use("/api/v1/book", bookRouter);
+
+// admin route
+app.use("/api/v1/admin", bookRouter);
 
 app.all("*", (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server`, 404));

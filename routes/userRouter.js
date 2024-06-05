@@ -8,6 +8,7 @@ import {
   passwordReset,
   getCurrentUser,
   updateUserProfile,
+  updatePassword,
   addToCart,
   getCart,
   removeFromCart
@@ -25,6 +26,8 @@ router
   .route("/profile")
   .get(protect, getCurrentUser)
   .patch(protect, updateUserProfile);
+
+router.route("/updatePassword", protect, updatePassword)
 
 router.route("/cart").post(protect, addToCart).get(protect, getCart);
 // .patch(protect, removeFromCart);

@@ -17,7 +17,7 @@ router.post("/removeBook/:id", protect, removeBook);
 router.patch("/updateBook/:id", protect, updateBook);
 
 router.get("/getAllBook", getAllBook);
-router.post("/getBookById/:id", protect, getBookById);
+router.get("/getBookById/:id", protect, getBookById);
 
 router.post("/filter", filterBooks);
 router.get("/search=:q", searchBook)

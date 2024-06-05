@@ -40,27 +40,29 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, "Please enter your Last Name"],
   },
-  address: {
-    add_line1: {
-      type: String,
-      // required: [true, "Please fill out address"],
+  addresses: [
+    {
+      add_line1: {
+        type: String,
+      },
+      add_line2: {
+        type: String,
+      },
+      city: {
+        type: String,
+      },
+      state: {
+        type: String,
+      },
+      postal_code: {
+        type: String,
+      },
+      isDefault: {
+        type: Boolean,
+        default: false,
+      },
     },
-    add_line2: {
-      type: String,
-    },
-    city: {
-      type: String,
-      // required: [true, "Please fill out address"],
-    },
-    state: {
-      type: String,
-      // required: [true, "Please fill out address"],
-    },
-    postal_code: {
-      type: String,
-      // required: [true, "Please fill out address"],
-    },
-  },
+  ],
   phone: {
     countryCode: {
       type: String,

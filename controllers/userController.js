@@ -36,7 +36,6 @@ const createToken = (user, statusCode, res) => {
   });
 };
 
-
 const signup = catchAsync(async (req, res, next) => {
   const {
     userName,
@@ -157,7 +156,7 @@ const logout = (req, res) => {
 };
 
 const getCurrentUser = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.user.id);
+  const user = req.user
 
   if (user) {
     res.status(200).json({
@@ -172,36 +171,69 @@ const getCurrentUser = catchAsync(async (req, res, next) => {
 });
 
 const updateUserProfile = catchAsync(async (req, res, next) => {
-  const user = await User.findByIdAndUpdate(req.user.id, req.body, {
-    new: true,
-    runValidators: true,
-  });
+  const updates = req.body;
+  const userId = req.user._id;
 
-  if (user) {
-    res.status(200).json({
-      status: "success",
-      data: {
-        user,
-      },
-    });
-  } else {
+  if (!req.user) {
     return next(new AppError("User not found", 404));
   }
+
+  let user = await User.findById(userId);
+
+  if (updates.addresses) {
+    updates.addresses.forEach((newAddress) => {
+      if (newAddress._id) {
+        // Update existing address
+        const addressIndex = user.addresses.findIndex(
+          (address) => address._id.toString() === newAddress._id
+        );
+
+        if (addressIndex !== -1) {
+          user.addresses[addressIndex] = {
+            ...user.addresses[addressIndex],
+            ...newAddress,
+          };
+        } else {
+          return next(new AppError("Address not found", 404));
+        }
+      } else {
+        // Add new address
+        user.addresses.push(newAddress);
+      }
+    });
+
+    delete updates.addresses; // Remove addresses from updates to avoid conflict with other updates
+  }
+
+  // Update other fields
+  Object.keys(updates).forEach((key) => {
+    user[key] = updates[key];
+  });
+
+  await user.save({ validateModifiedOnly: true });
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      user,
+    },
+  });
 });
 
-// const updatePassword = catchAsync(async (req, res, next) => {
-//   const user = await User.findById(req.user.id).select("+password");
 
-//   if (!(await user.correctPassword(req.body.passwordCurrent, user.password))) {
-//     return next(new AppError("Your current password is wrong.", 401));
-//   }
+const updatePassword = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.user.id).select("+password");
 
-//   user.password = req.body.password;
-//   user.passwordConfirm = req.body.passwordConfirm;
-//   await user.save();
+  if (!(await user.correctPassword(req.body.passwordCurrent, user.password))) {
+    return next(new AppError("Your current password is wrong.", 401));
+  }
 
-//   createToken(user, 200, res);
-// });
+  user.password = req.body.password;
+  user.passwordConfirm = req.body.passwordConfirm;
+  await user.save();
+
+  createToken(user, 200, res);
+});
 
 const addToCart = catchAsync(async (req, res, next) => {
   const { bookId } = req.body;
@@ -316,6 +348,16 @@ const passwordReset = catchAsync(async (req, res, next) => {
   createToken(user, 200, res);
 });
 
+// Giving access to the Admin
+const restrictToAdmin = (req, res, next) => {
+  if (!req.user || !req.user.isAdmin) {
+    return next(
+      new AppError("You do not have permission to perform this action", 403)
+    );
+  }
+  next();
+};
+
 export {
   signup,
   login,
@@ -323,10 +365,11 @@ export {
   logout,
   getCurrentUser,
   updateUserProfile,
-  // updatePassword,
+  updatePassword,
   addToCart,
   getCart,
   removeFromCart,
   forgotPassword,
   passwordReset,
+  restrictToAdmin,
 };
