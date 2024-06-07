@@ -156,7 +156,7 @@ const logout = (req, res) => {
 };
 
 const getCurrentUser = catchAsync(async (req, res, next) => {
-  const user = req.user
+  const user = req.user;
 
   if (user) {
     res.status(200).json({
@@ -219,7 +219,6 @@ const updateUserProfile = catchAsync(async (req, res, next) => {
     },
   });
 });
-
 
 const updatePassword = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.user.id).select("+password");
@@ -348,6 +347,133 @@ const passwordReset = catchAsync(async (req, res, next) => {
   createToken(user, 200, res);
 });
 
+const createInvoice = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    return next(new AppError("User not found", 404));
+  }
+  let invoice_id;
+  let invoiceNumber = user.invoices;
+  if (invoiceNumber.length === null) {
+    invoice_id = 0;
+  } else {
+    invoice_id = invoiceNumber.length + 1;
+  }
+
+  const { item_id, invoice_date, invoice_amount, payment_method } = req.body;
+
+  user.invoices.push({
+    invoice_id,
+    item_id: item_id,
+    invoice_date: invoice_date || Date.now(),
+    invoice_amount: invoice_amount,
+    payment_method: payment_method,
+  });
+
+  await user.save({ validateModifiedOnly: true });
+
+  res.status(201).json({
+    status: "success",
+    data: {
+      invoice: user.invoices[user.invoices.length - 1],
+    },
+  });
+});
+
+const getallInvoices = catchAsync(async (req, res) => {
+  const invoices = await User.find({}).select("invoices");
+  res.status(200).json({
+    status: "success",
+    data: {
+      invoices,
+    },
+  });
+});
+
+const getInvoiceById = catchAsync(async (req, res) => {
+  const invoiceId = req.params.id;
+
+  const invoice = await User.findById(invoiceId);
+  console.log(invoice);
+  if (!invoice) {
+    return next(new AppError("Invoice not found", 404));
+  }
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      invoice,
+    },
+  });
+});
+
+const addToWishlist = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    return next(new AppError("User not found", 404));
+  }
+
+  const { itemId } = req.body;
+  if (!itemId) {
+    return next(new AppError("Item ID is required", 400));
+  }
+
+  if (user.wishlist.includes(itemId)) {
+    return next(new AppError("Item already in wishlist", 400));
+  }
+
+  user.wishlist.push(itemId);
+  await user.save({ validateModifiedOnly: true });
+
+  res.status(201).json({
+    status: "success",
+    data: {
+      wishlist: user.wishlist,
+    },
+  });
+});
+
+const removeFromWishlist = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    return next(new AppError("User not found", 404));
+  }
+
+  const { itemId } = req.body;
+  if (!itemId) {
+    return next(new AppError("Item ID is required", 400));
+  }
+
+  const itemIndex = user.wishlist.indexOf(itemId);
+  if (itemIndex === -1) {
+    return next(new AppError("Item not found in wishlist", 404));
+  }
+
+  user.wishlist.splice(itemIndex, 1);
+  await user.save({ validateModifiedOnly: true });
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      wishlist: user.wishlist,
+    },
+  });
+});
+
+const getWishlist = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.user._id).select("wishlist");
+  if (!user) {
+    return next(new AppError("User not found", 404));
+  }
+
+  res.status(200).json({
+    status: "success",
+    data: {
+      wishlist: user.wishlist,
+    },
+  });
+});
+
 // Giving access to the Admin
 const restrictToAdmin = (req, res, next) => {
   if (!req.user || !req.user.isAdmin) {
@@ -372,4 +498,10 @@ export {
   forgotPassword,
   passwordReset,
   restrictToAdmin,
+  createInvoice,
+  getallInvoices,
+  getInvoiceById,
+  addToWishlist,
+  removeFromWishlist,
+  getWishlist,
 };

@@ -11,7 +11,13 @@ import {
   updatePassword,
   addToCart,
   getCart,
-  removeFromCart
+  removeFromCart,
+  createInvoice,
+  getallInvoices,
+  getInvoiceById,
+  addToWishlist,
+  removeFromWishlist,
+  getWishlist,
 } from "../controllers/userController.js";
 
 const router = express.Router();
@@ -27,11 +33,23 @@ router
   .get(protect, getCurrentUser)
   .patch(protect, updateUserProfile);
 
-router.route("/updatePassword", protect, updatePassword)
+router.route("/updatePassword", protect, updatePassword);
 
 router.route("/cart").post(protect, addToCart).get(protect, getCart);
 // .patch(protect, removeFromCart);
 
 router.route("/cart/:bookId").delete(protect, removeFromCart);
+
+router.post("/createinvoice", protect, createInvoice);
+
+router.get("/getallinvoices", protect, getallInvoices);
+
+router.get("/getinvoicebyid/:id", protect, getInvoiceById);
+
+router.post("/addwishlist", protect, addToWishlist);
+
+router.delete("/deletewishlist", protect, removeFromWishlist);
+
+router.get("/getwishlist", protect, getWishlist);
 
 export default router;
