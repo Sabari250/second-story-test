@@ -31,7 +31,7 @@ app.use("/api/v1/user", userRouter);
 app.use("/api/v1/book", bookRouter);
 
 // admin route
-app.use("/api/v1/admin", bookRouter);
+app.use("/api/v1/admin", adminRouter);
 
 app.all("*", (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server`, 404));

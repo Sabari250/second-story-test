@@ -240,15 +240,10 @@ const getBookFromnIventory = catchAsync(async (req, res, next) => {
   let books;
 
   if (user.isAdmin) {
-    // Fetch all books if the user is an admin
-    books = await Book.find();
+    // Fetch only the books added by the admin user
+    books = await Book.find({ addedBy: user._id });
   } else {
-    // Fetch books from the user's shelf
-    books = {
-      keep: user.shelf.keep,
-      sell: user.shelf.sell,
-      lend: user.shelf.lend,
-    };
+    return next(new AppError("You are not authorized to access this route", 403));
   }
 
   res.status(200).json({
@@ -258,6 +253,7 @@ const getBookFromnIventory = catchAsync(async (req, res, next) => {
     },
   });
 });
+
 
 export {
   addBook,

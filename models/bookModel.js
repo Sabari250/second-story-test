@@ -21,6 +21,11 @@ const bookSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
+  addedBy: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'User',
+    required: [true, 'A book must have an addedBy user'],
+  },
   description: {
     type: String,
     required: true,
