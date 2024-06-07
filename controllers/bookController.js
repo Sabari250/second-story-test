@@ -5,8 +5,10 @@ import AppError from "../utils/appError.js";
 import User from "../models/userModel.js";
 
 const addBook = catchAsync(async (req, res, next) => {
-  const { title, author, description, price, images, genres, category } =
-    req.body;
+  const { title, author, description, price, images, genres, category } = req.body;
+
+  // Ensure the addedBy field is set to the current user's ID
+  const addedBy = req.user.id;
 
   const newBook = await Book.create({
     title,
@@ -16,6 +18,7 @@ const addBook = catchAsync(async (req, res, next) => {
     images,
     genres,
     category,
+    addedBy
   });
 
   const user = await User.findById(req.user.id);
@@ -37,6 +40,7 @@ const addBook = catchAsync(async (req, res, next) => {
     },
   });
 });
+
 
 const removeBook = catchAsync(async (req, res, next) => {
   const user = await User.findById(req.user.id);
